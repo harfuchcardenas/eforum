@@ -5,7 +5,7 @@ use Cwd;
 
 # Function to navigate directories interactively
 my $build_base = cwd();  # Get current working directory
-my $board;
+my $board = 'az3166_iotdevkit';
 my $current_dir;
 my $zephyr_dir;
 
@@ -135,10 +135,10 @@ if (-d $target_dir) {
 #Get pwd via cwd
 $current_dir = $build_base; # Stores the current directory
 my $status = system("bash -c 'dpkg -s python3-venv >/dev/null 2>&1'");
-$current_dir .= "/zephyrproject";
+$current_dir = $target_dir;
 
 # Start navigation from 'zephyrproject'
-chdir("zephyrproject") or die "Failed to enter 'zephyrproject': $!\n";
+chdir("$target_dir") or die "Failed to enter 'zephyrproject': $!\n";
 system("bash -c '
 python3 -m venv $current_dir/.venv &&
 pwd &&
@@ -151,8 +151,11 @@ $zephyr_dir .= "/zephyr";
 system("bash -c '
 source $current_dir/.venv/bin/activate &&
 cd  $current_dir &&
+
 pip install west &&
-if [ -d .west ]; then echo \"Workspace already initialized.\"; else west init; fi &&
+
+if [ -d .west ]; then echo \"Workspace already initialized.\"; else west init -m https://github.com/harfuchcardenas/zephyr.git --mr master; fi &&
+
 west update &&
 west zephyr-export &&
 west packages pip --install &&
@@ -160,23 +163,22 @@ cd $zephyr_dir &&
 west sdk install &&
 deactivate'") == 0
 or die "Could not update west, virtual environment deactivated: $!";
+system("echo 'Virtual environment deactivated'");
 
 # Store final directory choice
 my $src_dir = navigate_directory(); #Correct directory of source code.
-
 
 my $boards_dir = $zephyr_dir;
 $boards_dir .= "/boards";
 
 chdir("$boards_dir") or die "Failed to enter board directory' $boards_dir': $!\n";
 
-my $board_selection = board_selection(); #Correct directory board.
+my $board_selection = $board; #Correct directory board.
 
 system("bash -c '
 source $current_dir/.venv/bin/activate &&
 cd  $zephyr_dir &&
-west build -p always -b $board_selection --source-dir $src_dir --build-dir $current_dir/zephyr/build &&
-deactivate'") == 0
-or die "Could not update west, virtual environment deactivated: $!";
+west build -p always -b $board --source-dir $src_dir --build-dir $current_dir/zephyr/build && deactivate'") == 0
+    or die "Could not update west: $!";
 system("echo 'Virtual environment deactivated'");
 exit 0;
